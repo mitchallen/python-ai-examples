@@ -21,11 +21,98 @@ packages/
   ai-otel-103/            # streaming: token counts, time-to-first-token
 ```
 
+## The examples
+
+Read them in order — each one adds a single idea to the one before it.
+
+### [`ai-python-101`](packages/ai-python-101) — the OpenAI client, minimally
+
+Construct `OpenAI()`, send a hard-coded conversation (system: *"you are a
+pirate"*, user: *"Hello"*), print the reply. A `Conversation` class adds message
+history so follow-up turns carry context.
+
+The one habit worth stealing: every entry point takes an optional `client`. That
+single parameter is why the tests need no API key, no network, and no mocking
+library — they pass a stub and assert on the request that was built.
+
+```sh
+make run PKG=ai-python-101
+```
+
+### [`ai-otel-101`](packages/ai-otel-101) — what did that call cost?
+
+The same call, wrapped in OpenTelemetry. `InstrumentedChat` owns the client and
+emits, per request, a `chat <model>` CLIENT span carrying the
+[GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
+— operation, provider, requested and responding model, finish reasons, and
+input/output token counts — plus two histograms, `gen_ai.client.token.usage`
+and `gen_ai.client.operation.duration`.
+
+Why the standard names matter: a generic OTel backend can chart cost per model
+without knowing anything about this code. The provider is derived from the
+endpoint the client actually points at, so running against a local model reports
+`ollama`, not a hardcoded `openai` in the very attribute a cost dashboard groups
+by. Message content is opt-in, because prompts are user data.
+
+```sh
+make run-ollama PKG=ai-otel-101
+```
+
+### [`ai-otel-102`](packages/ai-otel-102) — the same idea, standing alone
+
+One module, `observe.py`, with no dependency on anything else in this repo:
+copy the file into your own project and it works. A test enforces that, failing
+if an intra-repo dependency or sibling import ever appears.
+
+It also inverts the shape. Instead of a wrapper making the call for you, a `with`
+block wraps a call **you** make:
+
+```python
+with telemetry.chat(model) as observed:
+    observed.record(client.chat.completions.create(...))
+```
+
+That is what fits a call site already doing something interesting — retries, a
+fallback between providers, streaming. Skip `record()` on an early return and
+the span still closes cleanly; instrumentation that forces you to restructure
+your code does not survive contact with a real call site.
+
+```sh
+make run-ollama PKG=ai-otel-102
+```
+
+### [`ai-otel-103`](packages/ai-otel-103) — streaming, where the counts go missing
+
+A streamed response carries **no** `usage` block unless the request asks for
+`stream_options={"include_usage": True}` — and the chunk that then carries it
+arrives with an *empty* `choices` list, which is exactly where naive
+`chunk.choices[0]` code crashes on the last chunk of a working stream. Forget
+either detail and token telemetry reads zero for every streamed call, which in a
+chat UI is most of them:
+
+```
+stream WITHOUT stream_options : 17 chunks, usage: None
+stream WITH  include_usage    : 14 chunks, usage: prompt=35 completion=13
+```
+
+So the span stays open for the whole stream rather than just the opening
+request, which also makes time-to-first-token measurable. That matters because
+total duration grows with the length of the answer — a slow start and a long
+answer look identical — while TTFT is the latency a user actually feels.
+
+```sh
+make run-ollama PKG=ai-otel-103
+make run-ollama PKG=ai-otel-103 ARGS=--no-usage   # watch the counts vanish
+```
+
+Each example's own README goes deeper. `ai-otel-103` builds on `ai-otel-101`
+through the workspace; `ai-otel-102` deliberately depends on nothing.
+
 ## Getting started
 
 ```sh
-make install          # uv sync --all-packages
-make test             # run every package's tests
+make install                 # uv sync --all-packages
+make test                    # run every package's tests
 make run PKG=ai-python-101   # run one example (needs OPENAI_API_KEY)
 ```
 
