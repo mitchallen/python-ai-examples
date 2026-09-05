@@ -142,34 +142,65 @@ make test                    # run every package's tests
 make run PKG=ai-otel-101     # run one example
 ```
 
-**`make run` needs no configuration.** It uses `OPENAI_API_KEY` when one is
-exported, and otherwise falls back to a local [Ollama](https://ollama.com)
-model — every example is plain OpenAI-compatible HTTP, so nothing in the code
-changes:
+### `make run` picks a backend for you
+
+It needs no configuration and no OpenAI account. Every example is plain
+OpenAI-compatible HTTP, so a local model works with nothing in the code
+changing — `make run` just decides where to send the request:
+
+| Situation | What `make run` does |
+| --- | --- |
+| `OPENAI_API_KEY` is exported | Uses the hosted API with it |
+| No key, [Ollama](https://ollama.com) answering | Falls back to a local model, free, and says so: `==> no OPENAI_API_KEY set; using local Ollama (llama3.2:3b)` |
+| Neither | Prints both ways to fix it and stops — no traceback from inside the SDK |
+
+So the shortest path from a fresh clone to a running example is:
 
 ```sh
 ollama pull llama3.2:3b
-make run PKG=ai-otel-101                 # no key needed, no cost
+make run PKG=ai-otel-101
 ```
 
-Force one or the other when you care which:
+Force the choice when it matters — an auto-selecting `run` is exactly wrong when
+you meant to exercise the real API:
 
 ```sh
-make run-ollama PKG=ai-otel-101                          # always local
-make run-ollama PKG=ai-otel-101 OLLAMA_MODEL=qwen3.5:cloud
-make run-openai PKG=ai-otel-101                          # always the hosted API
+make run-openai PKG=ai-otel-101    # always the hosted API; refuses early without a key
+make run-ollama PKG=ai-otel-101    # always the local model
 ```
 
-`run-ollama` checks that the server answers and the model is pulled — a missing
-model says so instead of surfacing as a 404 — then sets `OPENAI_BASE_URL`,
-`OPENAI_MODEL`, and a placeholder `OPENAI_API_KEY` (the SDK insists on a
-non-empty one; Ollama ignores it). The OTel examples notice and report
-`gen_ai.provider.name: ollama`.
+`run-ollama` first checks that the server answers and the model is pulled, so a
+model you forgot to pull says so instead of surfacing as a 404. It then sets
+`OPENAI_BASE_URL`, `OPENAI_MODEL`, and a placeholder `OPENAI_API_KEY` — the SDK
+insists on a non-empty one, and Ollama ignores it. The OTel examples notice
+where the request went and report `gen_ai.provider.name: ollama`.
 
-With neither a key nor a running Ollama, `make run` says so and names both
-options rather than failing somewhere inside the SDK.
+Only the Ollama path defaults to `llama3.2:3b`; the hosted path stays on
+`gpt-4o-mini` (via `OPENAI_MODEL`), so exporting a real key never sends OpenAI a
+llama model name.
 
-`make help` lists the targets.
+### Targets and variables
+
+| Target | |
+| --- | --- |
+| `make install` | Create/refresh the workspace `.venv` with every member installed |
+| `make test` | Run the whole workspace suite |
+| `make test-pkg PKG=…` | Run one package's tests |
+| `make run PKG=…` | Run one example, backend chosen as above |
+| `make run-openai PKG=…` | Run against the hosted API |
+| `make run-ollama PKG=…` | Run against local Ollama |
+| `make badge` / `badge-check` | Regenerate / verify the test-count badge |
+| `make lint` | Byte-compile every example as a cheap syntax check |
+| `make clean` / `distclean` | Remove caches / also the virtualenv |
+
+| Variable | Default | |
+| --- | --- | --- |
+| `PKG` | `ai-python-101` | Which example to run or test |
+| `ARGS` | — | Passed through to the example, e.g. `ARGS=--no-usage` |
+| `OLLAMA_MODEL` | `llama3.2:3b` | Model for the Ollama path |
+| `OLLAMA_BASE_URL` | `http://localhost:11434/v1` | Where Ollama listens |
+
+`make help` prints the same target list.
 
 The test-count badge is generated, not typed: `make badge` rewrites
 `.github/badges/tests.json` from pytest's own collection, and CI runs
