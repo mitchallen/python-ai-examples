@@ -20,6 +20,7 @@ packages/
   ai-otel-102/            # self-contained variant: one module, context-manager shape
   ai-otel-103/            # streaming: token counts, time-to-first-token
   ai-otel-104/            # async streaming: concurrency and cancellation
+  ai-otel-105/            # tool calling: agent and tool spans, cost per turn
 ```
 
 ## The examples
@@ -129,10 +130,35 @@ latency. One span around a `gather` would just measure the slowest call.
 make run-ollama PKG=ai-otel-104
 ```
 
+### [`ai-otel-105`](packages/ai-otel-105) — tool calling, and what a turn costs
+
+One question stops being one model call. The model asks for a function, you run
+it, you send the result back, it answers — two round trips minimum, more if it
+chains tools. The whole turn becomes one trace: an `invoke_agent` span over
+alternating `chat` and `execute_tool` children, so the cost of answering *one
+question* is visible in one place.
+
+It also carries a finding worth keeping. The obvious prediction is that round
+two costs more input than round one, since it resends everything plus the tool
+output. Measured against `llama3.2:3b`, it went the other way — 258 input tokens
+down to 173 — because Ollama's reported `prompt_tokens` shrinks as its cached
+prefix grows, while OpenAI counts the whole prompt and reports cached tokens as
+a subset. So the example reports usage **per round** instead of asserting a
+rule: how a growing conversation maps to a bill is your provider's business, and
+it is measurable.
+
+Tool failures are recorded on the tool span and handed back to the model as
+text, because a model told what went wrong can often recover, while an exception
+escaping your instrumentation guarantees it cannot.
+
+```sh
+make run PKG=ai-otel-105
+```
+
 Each example's own README goes deeper. `ai-otel-102` deliberately depends on
-nothing; `ai-otel-103` builds on `ai-otel-101`, and `ai-otel-104` on `103`,
-reusing its attribute names so sync and async calls land in the same
-dashboards.
+nothing; `ai-otel-103` builds on `ai-otel-101`, `ai-otel-104` on `103`, and
+`ai-otel-105` reuses `101`'s `InstrumentedChat` for its model calls — so every
+example's spans and metrics land in the same dashboards.
 
 ## Getting started
 
