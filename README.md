@@ -21,6 +21,7 @@ packages/
   ai-otel-103/            # streaming: token counts, time-to-first-token
   ai-otel-104/            # async streaming: concurrency and cancellation
   ai-otel-105/            # tool calling: agent and tool spans, cost per turn
+  ai-otel-106/            # structured outputs: schema outcomes, not just errors
 ```
 
 ## The examples
@@ -153,6 +154,33 @@ escaping your instrumentation guarantees it cannot.
 
 ```sh
 make run PKG=ai-otel-105
+```
+
+### [`ai-otel-106`](packages/ai-otel-106) — structured outputs, and what "success" means
+
+"Did the model answer?" and "did it answer in a shape my code can use?" are
+different questions, and only the second matters to the caller. Same model, same
+prompt, two `response_format` settings:
+
+```
+{"type": "json_object"}   ->  { "The Black Pearl: An Infamous Pirate Ship": 1.4 }
+{"type": "json_schema"}   ->  { "name": "Black Pearl", "crew": 400, "cannons": 40 }
+```
+
+Both parse. The first is useless. So every call is classified — `parsed`,
+`refused`, `invalid_json`, `schema_invalid`, `truncated` — and the outcome rides
+on the span next to a counter, because a real `--loose` span reports
+`finish_reason: "stop"` beside `app.output.outcome: schema_invalid`:
+`finish_reason` is the model's opinion of the call, not the caller's.
+
+`refused` is deliberately not an error — a refusal is the model working, and
+burying it in the error rate hides a prompt problem inside what looks like an
+outage. And a schema buys shape, not sense: one strict run came back perfectly
+typed with `crew: 0` and a reputation of `"]["`.
+
+```sh
+make run PKG=ai-otel-106
+make run PKG=ai-otel-106 ARGS=--loose   # watch a "successful" call be unusable
 ```
 
 Each example's own README goes deeper. `ai-otel-102` deliberately depends on
