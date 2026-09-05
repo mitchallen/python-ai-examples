@@ -23,6 +23,7 @@ packages/
   ai-otel-105/            # tool calling: agent and tool spans, cost per turn
   ai-otel-106/            # structured outputs: schema outcomes, not just errors
   ai-otel-107/            # embeddings: batches, cache hits, semantic search
+  ai-otel-108/            # retries and rate limits: one span per attempt
 ```
 
 ## The examples
@@ -212,6 +213,35 @@ make run PKG=ai-otel-107
 Note this one needs `ollama serve --embeddings` and an embedding model
 (`ollama pull nomic-embed-text`); a default Ollama answers embeddings with
 `501`. The demo detects that and says so instead of failing with a traceback.
+
+### [`ai-otel-108`](packages/ai-otel-108) — retries, and why you never saw them
+
+`OpenAI().max_retries` is **2**. The client retries `429`s and `5xx` on its own,
+with backoff, *inside* the call you wrapped a span around. So one `create()` can
+be three HTTP requests and your telemetry shows one span, no error, and eight
+seconds of latency. Rate limiting does not look like rate limiting — it looks
+like a slow model, and you go debugging the wrong thing.
+
+This turns the SDK's retries off and does them itself, so each attempt is a span:
+
+```
+chat gpt-4o-mini            app.retry.attempts=3  app.retry.slept=2.0
+├── attempt 1   error.type=RateLimitError  http.response.status_code=429
+├── attempt 2   error.type=RateLimitError  app.retry.after_seconds=1.0
+└── attempt 3   gen_ai.usage.input_tokens=48
+```
+
+Time asleep is recorded apart from time in flight, because "slow" has two
+meanings and they need different fixes — one is your quota, the other is the
+model. `Retry-After` beats computed backoff, since the server knows when its
+window resets and ignoring it is how a fleet of clients synchronises into a
+thundering herd. And quota headers are read from **successful** calls, which is
+the cheapest early warning here: by the time a 429 arrives, the limit has
+already been hit.
+
+```sh
+make run PKG=ai-otel-108     # a normal call, then one rate-limited twice
+```
 
 Each example's own README goes deeper. `ai-otel-102` deliberately depends on
 nothing; `ai-otel-103` builds on `ai-otel-101`, `ai-otel-104` on `103`, and
