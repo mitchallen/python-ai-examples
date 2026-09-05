@@ -7,7 +7,7 @@ PKG ?= ai-python-101
 UV  ?= uv
 
 .DEFAULT_GOAL := help
-.PHONY: help install sync test test-pkg run lint clean distclean
+.PHONY: help install sync test test-pkg run lint badge badge-check clean distclean
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -26,6 +26,12 @@ test-pkg: install ## Run just one package's tests (PKG=<name>)
 
 run: install ## Run one example (PKG=<name>); needs OPENAI_API_KEY
 	$(UV) run --package $(PKG) $(PKG)
+
+badge: install ## Regenerate the README test-count badge from pytest
+	$(UV) run python scripts/test_badge.py
+
+badge-check: install ## Fail if the committed test-count badge is stale (CI runs this)
+	$(UV) run python scripts/test_badge.py --check
 
 lint: install ## Byte-compile every example as a cheap syntax check
 	$(UV) run python -m compileall -q packages
