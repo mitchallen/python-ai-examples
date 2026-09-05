@@ -1,0 +1,25 @@
+[project]
+name = "ai-otel-102"
+version = "0.1.0"
+description = "Self-contained OpenAI + OpenTelemetry example: one module, no workspace siblings."
+readme = "README.md"
+requires-python = ">=3.10"
+# Deliberately no intra-repo dependencies -- see tests/test_self_contained.py.
+dependencies = [
+    "openai>=1.40",
+    "opentelemetry-api>=1.25",
+    "opentelemetry-sdk>=1.25",
+]
+
+[project.optional-dependencies]
+otlp = ["opentelemetry-exporter-otlp-proto-http>=1.25"]
+
+[project.scripts]
+ai-otel-102 = "ai_otel_102.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_otel_102"]

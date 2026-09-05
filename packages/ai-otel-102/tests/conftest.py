@@ -1,9 +1,4 @@
-"""Stub OpenAI client plus in-memory OTel pipelines.
-
-Everything is in-process: no network, no API key, no collector. The tests read
-spans and metrics straight out of memory and assert on the attribute names,
-because those names are the contract with whatever backend consumes them.
-"""
+"""Stub client and in-memory OTel pipelines -- no network, no key, no collector."""
 
 from __future__ import annotations
 
@@ -78,7 +73,6 @@ def spans() -> InMemorySpanExporter:
 
 @pytest.fixture
 def tracer(spans: InMemorySpanExporter):
-    # A local provider, never the global one, so tests stay independent.
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(spans))
     return provider.get_tracer("test")
@@ -92,6 +86,13 @@ def metric_reader() -> InMemoryMetricReader:
 @pytest.fixture
 def meter(metric_reader: InMemoryMetricReader):
     return MeterProvider(metric_readers=[metric_reader]).get_meter("test")
+
+
+@pytest.fixture
+def chat_telemetry(tracer, meter):
+    from ai_otel_102 import ChatTelemetry
+
+    return ChatTelemetry(tracer=tracer, meter=meter)
 
 
 @pytest.fixture

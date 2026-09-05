@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from conftest import FakeClient, FakeResponse
 from opentelemetry.trace import SpanKind, StatusCode
 
 from ai_otel_101 import semconv as sc
@@ -108,8 +107,10 @@ def test_duration_metric_is_recorded_once_per_call(tracer, meter, metric_reader,
     assert point.sum >= 0
 
 
-def test_missing_usage_is_tolerated(tracer, meter, spans, metric_reader):
-    client = FakeClient(response=FakeResponse(usage=None))
+def test_missing_usage_is_tolerated(
+    tracer, meter, spans, metric_reader, make_client, make_response
+):
+    client = make_client(response=make_response(usage=None))
 
     InstrumentedChat(client, tracer=tracer, meter=meter).complete(
         MESSAGES, model="gpt-4o-mini"
@@ -123,9 +124,9 @@ def test_missing_usage_is_tolerated(tracer, meter, spans, metric_reader):
 
 
 def test_failure_marks_the_span_and_the_duration_metric(
-    tracer, meter, spans, metric_reader
+    tracer, meter, spans, metric_reader, make_client
 ):
-    client = FakeClient(error=RuntimeError("rate limited"))
+    client = make_client(error=RuntimeError("rate limited"))
     chat = InstrumentedChat(client, tracer=tracer, meter=meter)
 
     with pytest.raises(RuntimeError):

@@ -9,6 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "ai-otel-101",
+    "ai-otel-102",
     "ai-python-101",
 ]
 
@@ -34,6 +35,30 @@ otlp = [
 [package.metadata]
 requires-dist = [
     { name = "ai-python-101", editable = "packages/ai-python-101" },
+    { name = "openai", specifier = ">=1.40" },
+    { name = "opentelemetry-api", specifier = ">=1.25" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'otlp'", specifier = ">=1.25" },
+    { name = "opentelemetry-sdk", specifier = ">=1.25" },
+]
+provides-extras = ["otlp"]
+
+[[package]]
+name = "ai-otel-102"
+version = "0.1.0"
+source = { editable = "packages/ai-otel-102" }
+dependencies = [
+    { name = "openai" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-sdk" },
+]
+
+[package.optional-dependencies]
+otlp = [
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+]
+
+[package.metadata]
+requires-dist = [
     { name = "openai", specifier = ">=1.40" },
     { name = "opentelemetry-api", specifier = ">=1.25" },
     { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'otlp'", specifier = ">=1.25" },
