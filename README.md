@@ -24,6 +24,7 @@ packages/
   ai-otel-106/            # structured outputs: schema outcomes, not just errors
   ai-otel-107/            # embeddings: batches, cache hits, semantic search
   ai-otel-108/            # retries and rate limits: one span per attempt
+  ai-otel-109/            # conversation memory: history cost and compaction
 ```
 
 ## The examples
@@ -241,6 +242,36 @@ already been hit.
 
 ```sh
 make run PKG=ai-otel-108     # a normal call, then one rate-limited twice
+```
+
+### [`ai-otel-109`](packages/ai-otel-109) — conversation memory, and what history costs
+
+A chat model remembers nothing, so every turn resends the whole history and a
+conversation's cost grows with the square of its length. Each call looks fine on
+its own; only the total shows it. A real 6-turn run against `llama3.2:3b`:
+
+```
+turn   keep-all   sliding window(2)   summarizing
+  1      47 in         47 in             47 in
+  6     303 in        171 in            212 in
+total  1036 in        794 in            890 in
+```
+
+Four strategies behind one interface — keep everything, a sliding window, a
+token budget, or summarising old turns — each recording what it sent and what it
+dropped, so "the assistant forgot what I told it" has an answer in the trace.
+Every span carries `gen_ai.conversation.id`, without which turn 7 of a
+conversation that went wrong is indistinguishable from any other request.
+
+Compaction gets its own span inside the turn that triggered it, because it costs
+a model call and is easy to forget. Building this proved why that matters: the
+first version re-summarised every turn and cost **more** than keeping everything
+— 1728 tokens against 1015 — and nothing in the code looked wrong. Only the
+totals showed it.
+
+```sh
+make run PKG=ai-otel-109
+make run PKG=ai-otel-109 ARGS=--summarize
 ```
 
 Each example's own README goes deeper. `ai-otel-102` deliberately depends on
