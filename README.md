@@ -19,6 +19,7 @@ packages/
   ai-otel-101/            # the same call wrapped in OpenTelemetry (tokens, latency)
   ai-otel-102/            # self-contained variant: one module, context-manager shape
   ai-otel-103/            # streaming: token counts, time-to-first-token
+  ai-otel-104/            # async streaming: concurrency and cancellation
 ```
 
 ## The examples
@@ -105,8 +106,33 @@ make run-ollama PKG=ai-otel-103
 make run-ollama PKG=ai-otel-103 ARGS=--no-usage   # watch the counts vanish
 ```
 
-Each example's own README goes deeper. `ai-otel-103` builds on `ai-otel-101`
-through the workspace; `ai-otel-102` deliberately depends on nothing.
+### [`ai-otel-104`](packages/ai-otel-104) — async: many at once, and cancelled
+
+The same stream through `AsyncOpenAI`, several at a time. Async adds two traps,
+and both are about code that looks correct.
+
+`asyncio.CancelledError` inherits from **`BaseException`**, so `except
+Exception` instrumentation never sees a cancelled request — and cancellation is
+the *normal* ending for a streaming chat, because closing the tab is what
+cancels it. Those requests otherwise vanish from telemetry along with the tokens
+they already burned. Recording them as errors is the other half of the mistake:
+a user who navigated away is nothing to page on. They get
+`app.stream.cancelled`, keep their span status unset, still report their tokens,
+and always re-raise.
+
+The second is where you open the span. Spans live in a `contextvars` context
+that each asyncio task copies at creation, so opening it *inside* the coroutine
+gives N concurrent streams N sibling spans, each with its own first-token
+latency. One span around a `gather` would just measure the slowest call.
+
+```sh
+make run-ollama PKG=ai-otel-104
+```
+
+Each example's own README goes deeper. `ai-otel-102` deliberately depends on
+nothing; `ai-otel-103` builds on `ai-otel-101`, and `ai-otel-104` on `103`,
+reusing its attribute names so sync and async calls land in the same
+dashboards.
 
 ## Getting started
 
