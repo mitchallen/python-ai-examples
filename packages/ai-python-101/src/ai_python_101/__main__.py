@@ -19,8 +19,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if not os.environ.get("OPENAI_API_KEY"):
         print(
-            "OPENAI_API_KEY is not set. Export a key and try again:\n"
-            "    export OPENAI_API_KEY=sk-...",
+            "OPENAI_API_KEY is not set. Either:\n"
+            "    make run PKG=ai-python-101          # falls back to a local Ollama model\n"
+            "    export OPENAI_API_KEY=sk-...  # then: make run-openai PKG=ai-python-101",
             file=sys.stderr,
         )
         return 1

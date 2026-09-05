@@ -7,12 +7,14 @@ PKG  ?= ai-python-101
 ARGS ?=
 UV   ?= uv
 
-# Local Ollama, for running the examples with no API key and no cost.
+# Local Ollama, for running the examples with no API key and no cost. This is
+# what `make run` falls back to when OPENAI_API_KEY is not set.
 OLLAMA_MODEL    ?= llama3.2:3b
 OLLAMA_BASE_URL ?= http://localhost:11434/v1
+OLLAMA_HOST     := $(OLLAMA_BASE_URL:/v1=)
 
 .DEFAULT_GOAL := help
-.PHONY: help install sync test test-pkg run run-ollama lint badge badge-check clean distclean
+.PHONY: help install sync test test-pkg run run-openai run-ollama lint badge badge-check clean distclean
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -29,11 +31,27 @@ test: install ## Run the whole workspace test suite
 test-pkg: install ## Run just one package's tests (PKG=<name>)
 	$(UV) run pytest packages/$(PKG)
 
-run: install ## Run one example (PKG=<name>, ARGS=...); needs OPENAI_API_KEY
+run: install ## Run one example (PKG=<name>, ARGS=...): OPENAI_API_KEY if set, else Ollama
+	@if [ -n "$$OPENAI_API_KEY" ]; then \
+		$(MAKE) --no-print-directory run-openai PKG=$(PKG) ARGS="$(ARGS)"; \
+	elif curl -fsS -m 3 $(OLLAMA_HOST)/api/version >/dev/null 2>&1; then \
+		echo "==> no OPENAI_API_KEY set; using local Ollama ($(OLLAMA_MODEL))"; \
+		$(MAKE) --no-print-directory run-ollama PKG=$(PKG) ARGS="$(ARGS)"; \
+	else \
+		echo "Nothing to run against. Either:"; \
+		echo "  export OPENAI_API_KEY=sk-...            # the hosted API"; \
+		echo "  ollama serve && ollama pull $(OLLAMA_MODEL)   # a free local model"; \
+		exit 1; \
+	fi
+
+run-openai: install ## Run one example against the hosted API (requires OPENAI_API_KEY)
+	@[ -n "$$OPENAI_API_KEY" ] || { \
+		echo "OPENAI_API_KEY is not set. Export a key, or use: make run-ollama PKG=$(PKG)"; \
+		exit 1; }
 	$(UV) run --package $(PKG) $(PKG) $(ARGS)
 
 run-ollama: install ## Run one example against local Ollama (no API key, no cost)
-	@curl -fsS -m 3 $(OLLAMA_BASE_URL:/v1=)/api/version >/dev/null 2>&1 || { \
+	@curl -fsS -m 3 $(OLLAMA_HOST)/api/version >/dev/null 2>&1 || { \
 		echo "No Ollama at $(OLLAMA_BASE_URL) -- start it with: ollama serve"; exit 1; }
 	@ollama list 2>/dev/null | awk 'NR>1 {print $$1}' | grep -qx "$(OLLAMA_MODEL)" || { \
 		echo "Model $(OLLAMA_MODEL) is not pulled -- get it with: ollama pull $(OLLAMA_MODEL)"; exit 1; }

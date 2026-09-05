@@ -139,22 +139,35 @@ dashboards.
 ```sh
 make install                 # uv sync --all-packages
 make test                    # run every package's tests
-make run PKG=ai-python-101   # run one example (needs OPENAI_API_KEY)
+make run PKG=ai-otel-101     # run one example
 ```
 
-No OpenAI key? Every example is plain OpenAI-compatible HTTP, so a local
-[Ollama](https://ollama.com) model works with no code changes:
+**`make run` needs no configuration.** It uses `OPENAI_API_KEY` when one is
+exported, and otherwise falls back to a local [Ollama](https://ollama.com)
+model — every example is plain OpenAI-compatible HTTP, so nothing in the code
+changes:
 
 ```sh
 ollama pull llama3.2:3b
-make run-ollama PKG=ai-otel-101          # no key, no cost
-make run-ollama PKG=ai-otel-101 OLLAMA_MODEL=qwen3.5:cloud
+make run PKG=ai-otel-101                 # no key needed, no cost
 ```
 
-The target checks that the server answers and the model is pulled, then sets
-`OPENAI_BASE_URL`, `OPENAI_MODEL`, and a placeholder `OPENAI_API_KEY` (the SDK
-insists on a non-empty one; Ollama ignores it). The OTel examples notice and
-report `gen_ai.provider.name: ollama`.
+Force one or the other when you care which:
+
+```sh
+make run-ollama PKG=ai-otel-101                          # always local
+make run-ollama PKG=ai-otel-101 OLLAMA_MODEL=qwen3.5:cloud
+make run-openai PKG=ai-otel-101                          # always the hosted API
+```
+
+`run-ollama` checks that the server answers and the model is pulled — a missing
+model says so instead of surfacing as a 404 — then sets `OPENAI_BASE_URL`,
+`OPENAI_MODEL`, and a placeholder `OPENAI_API_KEY` (the SDK insists on a
+non-empty one; Ollama ignores it). The OTel examples notice and report
+`gen_ai.provider.name: ollama`.
+
+With neither a key nor a running Ollama, `make run` says so and names both
+options rather than failing somewhere inside the SDK.
 
 `make help` lists the targets.
 
