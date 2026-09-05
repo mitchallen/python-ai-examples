@@ -16,7 +16,7 @@ from ai_otel_102 import ChatTelemetry, provider_for, provider_from_base_url
         ("http://localhost:11434/v1", "ollama"),
         ("http://127.0.0.1:11434/v1", "ollama"),
         ("https://my-deployment.openai.azure.com/", "azure.ai.openai"),
-        ("http://gateway.corp:8080/v1", "gateway.corp:8080"),
+        ("http://gateway.corp:8080/v1", "openai_compatible"),
     ],
 )
 def test_provider_is_derived_from_the_base_url(base_url, expected):
@@ -67,3 +67,12 @@ def test_ask_pirate_derives_the_provider_from_its_client(tracer, meter, spans, m
 
     (span,) = spans.get_finished_spans()
     assert span.attributes[obs.PROVIDER_NAME] == "ollama"
+
+
+def test_an_unknown_host_never_leaks_into_telemetry():
+    for url in (
+        "http://gateway.corp:8080/v1",
+        "https://llm.internal.example.net/v1",
+        "http://10.0.0.7:8000/v1",
+    ):
+        assert provider_from_base_url(url) == obs.PROVIDER_OPENAI_COMPATIBLE

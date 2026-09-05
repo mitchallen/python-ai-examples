@@ -57,6 +57,9 @@ PROVIDER_NAME = "gen_ai.provider.name"
 PROVIDER_OPENAI = "openai"
 PROVIDER_OLLAMA = "ollama"
 PROVIDER_AZURE_OPENAI = "azure.ai.openai"
+# Anything else speaking the OpenAI wire protocol. Generic on purpose: the
+# hostname is accurate but leaks internal infrastructure names into telemetry.
+PROVIDER_OPENAI_COMPATIBLE = "openai_compatible"
 REQUEST_MODEL = "gen_ai.request.model"
 REQUEST_TEMPERATURE = "gen_ai.request.temperature"
 REQUEST_MAX_TOKENS = "gen_ai.request.max_tokens"
@@ -105,7 +108,7 @@ def provider_from_base_url(base_url: Any) -> str:
         return PROVIDER_AZURE_OPENAI
     if hostname.endswith(".openai.com"):
         return PROVIDER_OPENAI
-    return host
+    return PROVIDER_OPENAI_COMPATIBLE
 
 
 def provider_for(client: Any) -> str:

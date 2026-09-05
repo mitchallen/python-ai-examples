@@ -32,8 +32,8 @@ INSTRUMENTATION_VERSION = "0.1.0"
 
 
 # Hosts whose provider name the conventions actually define. Anything else
-# OpenAI-compatible -- a gateway, a proxy, vLLM -- is named by its host, which
-# beats reporting "openai" for a request OpenAI never saw.
+# OpenAI-compatible reports the generic name rather than "openai", which would
+# be a lie, or its hostname, which would leak infrastructure names.
 _KNOWN_PROVIDER_HOSTS = {
     "api.openai.com": sc.PROVIDER_OPENAI,
     "localhost:11434": sc.PROVIDER_OLLAMA,
@@ -65,8 +65,7 @@ def provider_from_base_url(base_url: Any) -> str:
         return sc.PROVIDER_AZURE_OPENAI
     if hostname.endswith(".openai.com"):
         return sc.PROVIDER_OPENAI
-    # Unknown but real: report where the tokens went.
-    return host
+    return sc.PROVIDER_OPENAI_COMPATIBLE
 
 
 def _capture_content_default() -> bool:

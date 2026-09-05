@@ -23,6 +23,10 @@ PROVIDER_NAME = "gen_ai.provider.name"
 PROVIDER_OPENAI = "openai"
 PROVIDER_OLLAMA = "ollama"
 PROVIDER_AZURE_OPENAI = "azure.ai.openai"
+# Anything else speaking the OpenAI wire protocol -- a gateway, a proxy, vLLM.
+# Deliberately generic: the hostname would be accurate but would put internal
+# infrastructure names into telemetry that often leaves the network.
+PROVIDER_OPENAI_COMPATIBLE = "openai_compatible"
 
 # --- the request -----------------------------------------------------------
 REQUEST_MODEL = "gen_ai.request.model"

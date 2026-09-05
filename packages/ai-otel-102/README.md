@@ -59,7 +59,9 @@ There is also a one-liner if you don't need the call site: `ask_pirate("Hello")`
 
 `provider_from_base_url()` / `provider_for(client)` name the provider from the
 endpoint the client points at: `api.openai.com` → `openai`, `localhost:11434` →
-`ollama`, `*.openai.azure.com` → `azure.ai.openai`, anything else → its host.
+`ollama`, `*.openai.azure.com` → `azure.ai.openai`, anything else speaking the
+protocol → `openai_compatible` (generic so internal hostnames stay out of
+telemetry).
 
 ```sh
 make run-ollama PKG=ai-otel-102     # reports provider "ollama"

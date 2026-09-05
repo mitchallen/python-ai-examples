@@ -49,7 +49,9 @@ backend can chart cost per model without knowing anything about this code.
 `gen_ai.provider.name` comes from the endpoint the client actually points at,
 via `provider_from_base_url()` — `api.openai.com` → `openai`,
 `localhost:11434` → `ollama`, `*.openai.azure.com` → `azure.ai.openai`, and
-anything else OpenAI-compatible → its host. Hardcoding `openai` would put the
+anything else speaking the protocol → `openai_compatible` (generic on purpose:
+the hostname would be accurate but would leak internal infrastructure names into
+telemetry that often leaves the network). Hardcoding `openai` would put the
 wrong value in the one attribute a cost dashboard groups by, the moment you run
 against a local model:
 

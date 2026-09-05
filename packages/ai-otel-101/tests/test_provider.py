@@ -18,9 +18,9 @@ from ai_otel_101.instrumented import InstrumentedChat, provider_from_base_url
         ("http://127.0.0.1:11434/v1", "ollama"),
         ("http://ollama.internal:11434/v1", "ollama"),
         ("https://my-deployment.openai.azure.com/", "azure.ai.openai"),
-        # Unknown but real: report where the tokens actually went rather than
-        # claiming OpenAI served them.
-        ("http://gateway.corp:8080/v1", "gateway.corp:8080"),
+        # Unknown: generic rather than "openai" (a lie) or the hostname
+        # (an infrastructure-name leak).
+        ("http://gateway.corp:8080/v1", "openai_compatible"),
     ],
 )
 def test_provider_is_derived_from_the_base_url(base_url, expected):
@@ -79,3 +79,13 @@ def test_a_client_without_a_base_url_still_works(tracer, meter, spans, client):
 
     (span,) = spans.get_finished_spans()
     assert span.attributes[sc.PROVIDER_NAME] == "openai"
+
+
+def test_an_unknown_host_never_leaks_into_telemetry():
+    # The hostname must not survive into the attribute value.
+    for url in (
+        "http://gateway.corp:8080/v1",
+        "https://llm.internal.example.net/v1",
+        "http://10.0.0.7:8000/v1",
+    ):
+        assert provider_from_base_url(url) == sc.PROVIDER_OPENAI_COMPATIBLE
