@@ -13,6 +13,7 @@ uv.lock                   # one lock file for the whole workspace
 Makefile                  # install / test / run
 packages/
   ai-python-101/          # OpenAI client hello-world: a pirate conversation
+  ai-otel-101/            # the same call wrapped in OpenTelemetry (tokens, latency)
 ```
 
 ## Getting started
