@@ -1,0 +1,19 @@
+[project]
+name = "ai-python-101"
+version = "0.1.0"
+description = "Hello-world for the Python OpenAI client: a hard-coded pirate conversation."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "openai>=1.40",
+]
+
+[project.scripts]
+ai-python-101 = "ai_python_101.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_python_101"]

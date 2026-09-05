@@ -1,0 +1,12 @@
+# Virtual workspace root: no package of its own, just the member glob.
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["packages"]
+addopts = "-q"
