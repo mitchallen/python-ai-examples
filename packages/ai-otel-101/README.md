@@ -27,7 +27,7 @@ One CLIENT span per call, named `chat <model>` per the OpenTelemetry
 | Attribute | Example |
 | --- | --- |
 | `gen_ai.operation.name` | `chat` |
-| `gen_ai.system` / `gen_ai.provider.name` | `openai` (both, since the name was changed) |
+| `gen_ai.system` / `gen_ai.provider.name` | `openai`, `ollama`, … (both keys, since the name was changed) |
 | `gen_ai.request.model` | `gpt-4o-mini` |
 | `gen_ai.response.model` | `gpt-4o-mini-2024-07-18` |
 | `gen_ai.response.id`, `gen_ai.response.finish_reasons` | `chatcmpl-…`, `["stop"]` |
@@ -43,6 +43,21 @@ Plus two histograms, which is what dashboards and alerts actually read:
 
 Sticking to the standard names is the entire trick: it's why a generic OTel
 backend can chart cost per model without knowing anything about this code.
+
+## The provider is derived, not assumed
+
+`gen_ai.provider.name` comes from the endpoint the client actually points at,
+via `provider_from_base_url()` — `api.openai.com` → `openai`,
+`localhost:11434` → `ollama`, `*.openai.azure.com` → `azure.ai.openai`, and
+anything else OpenAI-compatible → its host. Hardcoding `openai` would put the
+wrong value in the one attribute a cost dashboard groups by, the moment you run
+against a local model:
+
+```sh
+make run-ollama PKG=ai-otel-101     # from the repo root; reports provider "ollama"
+```
+
+Pass `provider="…"` to `InstrumentedChat` when you know better than the URL.
 
 ## Message content is opt-in
 

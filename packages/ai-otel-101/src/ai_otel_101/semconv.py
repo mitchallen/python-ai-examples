@@ -16,7 +16,13 @@ OPERATION_CHAT = "chat"
 # example emits both and lets the collector drop whichever it does not want.
 SYSTEM = "gen_ai.system"
 PROVIDER_NAME = "gen_ai.provider.name"
+
+# Well-known provider values. The conventions define an open enum: anything
+# OpenAI-compatible that is not listed still gets a name, it just isn't one the
+# spec blesses. See provider_from_base_url() in instrumented.py.
 PROVIDER_OPENAI = "openai"
+PROVIDER_OLLAMA = "ollama"
+PROVIDER_AZURE_OPENAI = "azure.ai.openai"
 
 # --- the request -----------------------------------------------------------
 REQUEST_MODEL = "gen_ai.request.model"

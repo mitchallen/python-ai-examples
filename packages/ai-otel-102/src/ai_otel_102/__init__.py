@@ -8,6 +8,8 @@ from .observe import (
     Telemetry,
     build_conversation,
     configure_telemetry,
+    provider_for,
+    provider_from_base_url,
 )
 
 __all__ = [
@@ -18,4 +20,6 @@ __all__ = [
     "Telemetry",
     "build_conversation",
     "configure_telemetry",
+    "provider_for",
+    "provider_from_base_url",
 ]

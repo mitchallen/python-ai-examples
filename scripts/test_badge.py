@@ -23,9 +23,10 @@ COLLECTED = re.compile(r"(\d+) tests? collected")
 def count_tests() -> int:
     """Ask pytest how many tests exist, without running them."""
     result = subprocess.run(
-        # `-o addopts=` clears the repo's own -q: combined with the -q below it
-        # becomes double-quiet, which drops the "N tests collected" summary.
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-o", "addopts="],
+        # No -q here and no -o override: the repo's addopts already supplies -q
+        # (a second one means double-quiet, which drops the "N tests collected"
+        # summary) and the import mode collection depends on.
+        [sys.executable, "-m", "pytest", "--collect-only"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,

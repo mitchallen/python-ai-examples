@@ -6,8 +6,12 @@
 PKG ?= ai-python-101
 UV  ?= uv
 
+# Local Ollama, for running the examples with no API key and no cost.
+OLLAMA_MODEL    ?= llama3.2:3b
+OLLAMA_BASE_URL ?= http://localhost:11434/v1
+
 .DEFAULT_GOAL := help
-.PHONY: help install sync test test-pkg run lint badge badge-check clean distclean
+.PHONY: help install sync test test-pkg run run-ollama lint badge badge-check clean distclean
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -25,6 +29,16 @@ test-pkg: install ## Run just one package's tests (PKG=<name>)
 	$(UV) run pytest packages/$(PKG)
 
 run: install ## Run one example (PKG=<name>); needs OPENAI_API_KEY
+	$(UV) run --package $(PKG) $(PKG)
+
+run-ollama: install ## Run one example against local Ollama (no API key, no cost)
+	@curl -fsS -m 3 $(OLLAMA_BASE_URL:/v1=)/api/version >/dev/null 2>&1 || { \
+		echo "No Ollama at $(OLLAMA_BASE_URL) -- start it with: ollama serve"; exit 1; }
+	@ollama list 2>/dev/null | awk 'NR>1 {print $$1}' | grep -qx "$(OLLAMA_MODEL)" || { \
+		echo "Model $(OLLAMA_MODEL) is not pulled -- get it with: ollama pull $(OLLAMA_MODEL)"; exit 1; }
+	OPENAI_API_KEY=ollama \
+	OPENAI_BASE_URL=$(OLLAMA_BASE_URL) \
+	OPENAI_MODEL=$(OLLAMA_MODEL) \
 	$(UV) run --package $(PKG) $(PKG)
 
 badge: install ## Regenerate the README test-count badge from pytest

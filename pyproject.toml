@@ -9,4 +9,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["packages"]
-addopts = "-q"
+# importlib mode lets every package keep its own tests/test_provider.py without
+# the files colliding on one module name -- the default "prepend" mode maps
+# same-named test files across packages to a single import and fails collection.
+addopts = "-q --import-mode=importlib"

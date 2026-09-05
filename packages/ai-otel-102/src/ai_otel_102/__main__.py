@@ -9,6 +9,7 @@ from .observe import (
     build_conversation,
     configure_telemetry,
     create_client,
+    provider_for,
     resolve_model,
 )
 
@@ -26,8 +27,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     telemetry = configure_telemetry()
-    chat = telemetry.chat_telemetry()
     client = create_client()
+    # Reports "ollama" when OPENAI_BASE_URL points at a local model.
+    chat = telemetry.chat_telemetry(provider=provider_for(client))
     model = resolve_model()
 
     try:

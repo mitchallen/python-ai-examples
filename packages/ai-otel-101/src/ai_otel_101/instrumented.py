@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 import time
 from typing import Any, Iterable, Mapping, Sequence
+from urllib.parse import urlparse
 
 from opentelemetry import metrics, trace
 from opentelemetry.trace import SpanKind
@@ -28,6 +29,44 @@ from . import semconv as sc
 
 INSTRUMENTATION_NAME = "ai-otel-101"
 INSTRUMENTATION_VERSION = "0.1.0"
+
+
+# Hosts whose provider name the conventions actually define. Anything else
+# OpenAI-compatible -- a gateway, a proxy, vLLM -- is named by its host, which
+# beats reporting "openai" for a request OpenAI never saw.
+_KNOWN_PROVIDER_HOSTS = {
+    "api.openai.com": sc.PROVIDER_OPENAI,
+    "localhost:11434": sc.PROVIDER_OLLAMA,
+    "127.0.0.1:11434": sc.PROVIDER_OLLAMA,
+    "[::1]:11434": sc.PROVIDER_OLLAMA,
+}
+
+
+def provider_from_base_url(base_url: Any) -> str:
+    """Name the provider from the endpoint the client actually talks to.
+
+    The OpenAI SDK points at whatever ``base_url``/``OPENAI_BASE_URL`` says, so
+    a hardcoded ``"openai"`` is wrong the moment someone runs against Ollama or
+    an Azure deployment -- and wrong in the one attribute a cost dashboard
+    groups by.
+    """
+    if not base_url:
+        # No override: the SDK's own default endpoint.
+        return sc.PROVIDER_OPENAI
+
+    host = (urlparse(str(base_url)).netloc or str(base_url)).lower()
+    if host in _KNOWN_PROVIDER_HOSTS:
+        return _KNOWN_PROVIDER_HOSTS[host]
+
+    hostname = host.rsplit(":", 1)[0] if not host.endswith("]") else host
+    if "ollama" in hostname:
+        return sc.PROVIDER_OLLAMA
+    if hostname.endswith(".openai.azure.com"):
+        return sc.PROVIDER_AZURE_OPENAI
+    if hostname.endswith(".openai.com"):
+        return sc.PROVIDER_OPENAI
+    # Unknown but real: report where the tokens went.
+    return host
 
 
 def _capture_content_default() -> bool:
@@ -60,8 +99,13 @@ class InstrumentedChat:
         tracer: trace.Tracer | None = None,
         meter: metrics.Meter | None = None,
         capture_content: bool | None = None,
+        provider: str | None = None,
     ) -> None:
         self._client = client
+        # Derived from the client unless the caller knows better.
+        self._provider = provider or provider_from_base_url(
+            getattr(client, "base_url", None)
+        )
         self._tracer = tracer or trace.get_tracer(
             INSTRUMENTATION_NAME, INSTRUMENTATION_VERSION
         )
@@ -132,8 +176,8 @@ class InstrumentedChat:
     ) -> dict[str, Any]:
         attributes: dict[str, Any] = {
             sc.OPERATION_NAME: sc.OPERATION_CHAT,
-            sc.SYSTEM: sc.PROVIDER_OPENAI,
-            sc.PROVIDER_NAME: sc.PROVIDER_OPENAI,
+            sc.SYSTEM: self._provider,
+            sc.PROVIDER_NAME: self._provider,
             sc.REQUEST_MODEL: model,
         }
         # Only sampling knobs that were actually set; absent is not the same

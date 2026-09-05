@@ -55,6 +55,20 @@ restructure your code does not survive contact with a real call site.
 
 There is also a one-liner if you don't need the call site: `ask_pirate("Hello")`.
 
+## The provider is derived, not assumed
+
+`provider_from_base_url()` / `provider_for(client)` name the provider from the
+endpoint the client points at: `api.openai.com` → `openai`, `localhost:11434` →
+`ollama`, `*.openai.azure.com` → `azure.ai.openai`, anything else → its host.
+
+```sh
+make run-ollama PKG=ai-otel-102     # reports provider "ollama"
+```
+
+Because this example's whole point is an interesting call site, `provider` can
+also be overridden per call — `chat.chat(model, provider="ollama")` — which is
+what a block that falls back from one provider to another needs.
+
 ## What gets emitted
 
 One CLIENT span named `chat <model>`, carrying the OpenTelemetry

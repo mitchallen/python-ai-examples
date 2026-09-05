@@ -23,6 +23,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Iterator, Mapping, Sequence
+from urllib.parse import urlparse
 
 from openai import OpenAI
 from opentelemetry import metrics, trace
@@ -54,6 +55,8 @@ OPERATION_CHAT = "chat"
 SYSTEM = "gen_ai.system"  # renamed to gen_ai.provider.name; both are emitted
 PROVIDER_NAME = "gen_ai.provider.name"
 PROVIDER_OPENAI = "openai"
+PROVIDER_OLLAMA = "ollama"
+PROVIDER_AZURE_OPENAI = "azure.ai.openai"
 REQUEST_MODEL = "gen_ai.request.model"
 REQUEST_TEMPERATURE = "gen_ai.request.temperature"
 REQUEST_MAX_TOKENS = "gen_ai.request.max_tokens"
@@ -71,6 +74,43 @@ TOKEN_TYPE_OUTPUT = "output"
 
 
 # --- the chat bits ----------------------------------------------------------
+
+
+_KNOWN_PROVIDER_HOSTS = {
+    "api.openai.com": PROVIDER_OPENAI,
+    "localhost:11434": PROVIDER_OLLAMA,
+    "127.0.0.1:11434": PROVIDER_OLLAMA,
+    "[::1]:11434": PROVIDER_OLLAMA,
+}
+
+
+def provider_from_base_url(base_url: Any) -> str:
+    """Name the provider from the endpoint the client actually talks to.
+
+    The OpenAI SDK follows ``base_url``/``OPENAI_BASE_URL``, so a hardcoded
+    ``"openai"`` is wrong the moment the call goes to Ollama or Azure -- and
+    wrong in the attribute a cost dashboard groups by.
+    """
+    if not base_url:
+        return PROVIDER_OPENAI
+
+    host = (urlparse(str(base_url)).netloc or str(base_url)).lower()
+    if host in _KNOWN_PROVIDER_HOSTS:
+        return _KNOWN_PROVIDER_HOSTS[host]
+
+    hostname = host.rsplit(":", 1)[0] if not host.endswith("]") else host
+    if "ollama" in hostname:
+        return PROVIDER_OLLAMA
+    if hostname.endswith(".openai.azure.com"):
+        return PROVIDER_AZURE_OPENAI
+    if hostname.endswith(".openai.com"):
+        return PROVIDER_OPENAI
+    return host
+
+
+def provider_for(client: Any) -> str:
+    """The provider a constructed client points at."""
+    return provider_from_base_url(getattr(client, "base_url", None))
 
 
 def create_client() -> OpenAI:
@@ -169,7 +209,9 @@ class ChatTelemetry:
         *,
         tracer: trace.Tracer | None = None,
         meter: metrics.Meter | None = None,
+        provider: str | None = None,
     ) -> None:
+        self._provider = provider or PROVIDER_OPENAI
         self._tracer = tracer or trace.get_tracer(
             INSTRUMENTATION_NAME, INSTRUMENTATION_VERSION
         )
@@ -194,12 +236,18 @@ class ChatTelemetry:
         *,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        provider: str | None = None,
     ) -> Iterator[Observation]:
-        """Open a span around a chat call you make yourself."""
+        """Open a span around a chat call you make yourself.
+
+        ``provider`` overrides the instance default per call, which is what a
+        call site that falls back from one provider to another needs.
+        """
+        provider = provider or self._provider
         attributes: dict[str, Any] = {
             OPERATION_NAME: OPERATION_CHAT,
-            SYSTEM: PROVIDER_OPENAI,
-            PROVIDER_NAME: PROVIDER_OPENAI,
+            SYSTEM: provider,
+            PROVIDER_NAME: provider,
             REQUEST_MODEL: model,
         }
         if temperature is not None:
@@ -262,8 +310,10 @@ class Telemetry:
     def meter(self, name: str = INSTRUMENTATION_NAME) -> metrics.Meter:
         return self.meter_provider.get_meter(name)
 
-    def chat_telemetry(self) -> ChatTelemetry:
-        return ChatTelemetry(tracer=self.tracer(), meter=self.meter())
+    def chat_telemetry(self, provider: str | None = None) -> ChatTelemetry:
+        return ChatTelemetry(
+            tracer=self.tracer(), meter=self.meter(), provider=provider
+        )
 
     def shutdown(self) -> None:
         """Flush both pipelines. Batch exporters drop data without this."""
@@ -334,7 +384,7 @@ def ask_pirate(
 ) -> str:
     """The whole example in one call: instrumented, hard-coded, self-contained."""
     client = client or create_client()
-    telemetry = telemetry or ChatTelemetry()
+    telemetry = telemetry or ChatTelemetry(provider=provider_for(client))
     model = resolve_model(model)
     conversation = list(messages) if messages else build_conversation(user_message)
 

@@ -28,6 +28,20 @@ make test             # run every package's tests
 make run PKG=ai-python-101   # run one example (needs OPENAI_API_KEY)
 ```
 
+No OpenAI key? Every example is plain OpenAI-compatible HTTP, so a local
+[Ollama](https://ollama.com) model works with no code changes:
+
+```sh
+ollama pull llama3.2:3b
+make run-ollama PKG=ai-otel-101          # no key, no cost
+make run-ollama PKG=ai-otel-101 OLLAMA_MODEL=qwen3.5:cloud
+```
+
+The target checks that the server answers and the model is pulled, then sets
+`OPENAI_BASE_URL`, `OPENAI_MODEL`, and a placeholder `OPENAI_API_KEY` (the SDK
+insists on a non-empty one; Ollama ignores it). The OTel examples notice and
+report `gen_ai.provider.name: ollama`.
+
 `make help` lists the targets.
 
 The test-count badge is generated, not typed: `make badge` rewrites
