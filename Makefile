@@ -3,8 +3,9 @@
 # Every example lives in packages/<name> and is a workspace member, so one
 # `uv sync` builds a single root .venv that can run any of them.
 
-PKG ?= ai-python-101
-UV  ?= uv
+PKG  ?= ai-python-101
+ARGS ?=
+UV   ?= uv
 
 # Local Ollama, for running the examples with no API key and no cost.
 OLLAMA_MODEL    ?= llama3.2:3b
@@ -28,8 +29,8 @@ test: install ## Run the whole workspace test suite
 test-pkg: install ## Run just one package's tests (PKG=<name>)
 	$(UV) run pytest packages/$(PKG)
 
-run: install ## Run one example (PKG=<name>); needs OPENAI_API_KEY
-	$(UV) run --package $(PKG) $(PKG)
+run: install ## Run one example (PKG=<name>, ARGS=...); needs OPENAI_API_KEY
+	$(UV) run --package $(PKG) $(PKG) $(ARGS)
 
 run-ollama: install ## Run one example against local Ollama (no API key, no cost)
 	@curl -fsS -m 3 $(OLLAMA_BASE_URL:/v1=)/api/version >/dev/null 2>&1 || { \
@@ -39,7 +40,7 @@ run-ollama: install ## Run one example against local Ollama (no API key, no cost
 	OPENAI_API_KEY=ollama \
 	OPENAI_BASE_URL=$(OLLAMA_BASE_URL) \
 	OPENAI_MODEL=$(OLLAMA_MODEL) \
-	$(UV) run --package $(PKG) $(PKG)
+	$(UV) run --package $(PKG) $(PKG) $(ARGS)
 
 badge: install ## Regenerate the README test-count badge from pytest
 	$(UV) run python scripts/test_badge.py

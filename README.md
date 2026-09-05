@@ -18,6 +18,7 @@ packages/
   ai-python-101/          # OpenAI client hello-world: a pirate conversation
   ai-otel-101/            # the same call wrapped in OpenTelemetry (tokens, latency)
   ai-otel-102/            # self-contained variant: one module, context-manager shape
+  ai-otel-103/            # streaming: token counts, time-to-first-token
 ```
 
 ## Getting started
