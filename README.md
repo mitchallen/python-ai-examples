@@ -22,6 +22,7 @@ packages/
   ai-otel-104/            # async streaming: concurrency and cancellation
   ai-otel-105/            # tool calling: agent and tool spans, cost per turn
   ai-otel-106/            # structured outputs: schema outcomes, not just errors
+  ai-otel-107/            # embeddings: batches, cache hits, semantic search
 ```
 
 ## The examples
@@ -182,6 +183,35 @@ typed with `crew: 0` and a reputation of `"]["`.
 make run PKG=ai-otel-106
 make run PKG=ai-otel-106 ARGS=--loose   # watch a "successful" call be unusable
 ```
+
+### [`ai-otel-107`](packages/ai-otel-107) — embeddings, and the token that isn't there
+
+Embedding telemetry looks like chat telemetry until you notice what is missing.
+An embeddings response has **no `completion_tokens`** — nothing is generated —
+so copying the chat instrumentation across writes `gen_ai.usage.output_tokens:
+0` on every call, and that fabricated zero quietly drags down every
+output-token average it shares a dashboard with. A test asserts the attribute is
+absent rather than zero.
+
+The other two differences are levers rather than traps. The unit of work is a
+**batch**, and one call for 200 documents produces the same span as one call for
+one query unless the size is recorded — so `app.embeddings.inputs` is, and the
+demo prints milliseconds per input. And the same text always embeds to the same
+vector, which makes a **cache** the difference between paying once and paying
+every deploy: the wrapper sends only cache misses, and `app.embeddings.cache`
+counts hits against misses so the hit rate is a query.
+
+A small semantic search puts the split in one trace — embedding the query is a
+network call that costs tokens, ranking the corpus is arithmetic that costs
+neither.
+
+```sh
+make run PKG=ai-otel-107
+```
+
+Note this one needs `ollama serve --embeddings` and an embedding model
+(`ollama pull nomic-embed-text`); a default Ollama answers embeddings with
+`501`. The demo detects that and says so instead of failing with a traceback.
 
 Each example's own README goes deeper. `ai-otel-102` deliberately depends on
 nothing; `ai-otel-103` builds on `ai-otel-101`, `ai-otel-104` on `103`, and

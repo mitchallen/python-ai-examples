@@ -10,6 +10,8 @@ UV   ?= uv
 # Local Ollama, for running the examples with no API key and no cost. This is
 # what `make run` falls back to when OPENAI_API_KEY is not set.
 OLLAMA_MODEL    ?= llama3.2:3b
+# Embeddings need their own model, and a server started with --embeddings.
+OLLAMA_EMBED_MODEL ?= nomic-embed-text
 OLLAMA_BASE_URL ?= http://localhost:11434/v1
 OLLAMA_HOST     := $(OLLAMA_BASE_URL:/v1=)
 
@@ -58,6 +60,7 @@ run-ollama: install ## Run one example against local Ollama (no API key, no cost
 	OPENAI_API_KEY=ollama \
 	OPENAI_BASE_URL=$(OLLAMA_BASE_URL) \
 	OPENAI_MODEL=$(OLLAMA_MODEL) \
+	OPENAI_EMBEDDING_MODEL=$(OLLAMA_EMBED_MODEL) \
 	$(UV) run --package $(PKG) $(PKG) $(ARGS)
 
 badge: install ## Regenerate the README test-count badge from pytest
